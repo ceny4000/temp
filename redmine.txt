@@ -1,0 +1,57 @@
+https://github.com/bitnami/containers/tree/main/bitnami/redmine#how-to-use-this-image
+
+# 安裝 wsl (須重開機)
+wsl --install
+# 列出可安裝 Image
+wsl --list --online
+# 更新 wsl
+wsl --update
+# 安裝 Ubuntu
+wsl --install -d Ubuntu-24.04
+
+# 系統更新
+sudo apt-get update
+sudo apt-get upgrade
+# 安裝 Podman
+sudo apt-get -y install podman
+# 新增 Volume Folder
+mkdir mariadb
+mkdir redmine
+
+# 抓下 Bitnami Redmine Image
+podman pull docker.io/bitnami/redmine:latest
+podman pull docker.io/bitnami/mariadb:latest
+
+# 建立內部子網路
+podman network create redmine-network
+
+# 建立 Volume 並啟動 MariaDB 容器
+podman volume create mariadb_data
+podman run -d --name mariadb \
+  --env ALLOW_EMPTY_PASSWORD=yes \
+  --env MARIADB_USER=bn_redmine \
+  --env MARIADB_PASSWORD=bitnami \
+  --env MARIADB_DATABASE=bitnami_redmine \
+  --network redmine-network \
+  --volume mariadb_data:/bitnami/mariadb \
+  bitnami/mariadb:latest
+
+# 建立 Volume 並啟動 Redmine 容器
+podman volume create redmine_data
+podman run -d --name redmine \
+  -p 3000:3000 \
+  --env ALLOW_EMPTY_PASSWORD=yes \
+  --env REDMINE_DATABASE_USER=bn_redmine \
+  --env REDMINE_DATABASE_PASSWORD=bitnami \
+  --env REDMINE_DATABASE_NAME=bitnami_redmine \
+  --network redmine-network \
+  --volume redmine_data:/bitnami/redmine \
+  bitnami/redmine:latest
+
+# 取得 Ubuntu 在 Server 的 Host IP
+ip addr show eth0 | grep inet
+
+# 將 3000 Port 由 Windows 暴露給外部呼叫
+netsh interface portproxy add v4tov4 listenport=3000 listenaddress=0.0.0.0 connectport=3000 connectaddress=<Host IP>
+
+# Redmine 預設帳號 : user ,密碼 : bitnami1 初次登入後記得修改密碼
